@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0b0e14" />
+<title>Chart Watcher</title>
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #141821;
+    --panel-2: #1c2130;
+    --border: #242a3a;
+    --text: #e6e9ef;
+    --muted: #8b93a7;
+    --accent: #4da3ff;
+    --up: #26a69a;
+    --down: #ef5350;
+    --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+  }
+  header {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .title {
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  .title .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 110px 80px;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  input, select, button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    min-height: 46px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+  }
+  button {
+    background: var(--accent);
+    color: #0b0e14;
+    border: none;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.55; cursor: default; }
+  button.secondary {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  #chartWrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 10px;
+  }
+  #chart { width: 100%; height: 46vh; min-height: 280px; }
+  .quote-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 4px 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .quote-row .sym { font-weight: 700; }
+  .quote-row .px { font-size: 18px; font-weight: 700; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .analyze-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    margin: 10px 0 14px;
+  }
+  .err {
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid var(--err);
+    color: var(--err);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+  .muted { color: var(--muted); }
+  #analysis {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 4px;
+    display: none;
+  }
+  #analysis.show { display: block; }
+  #analysis h2 {
+    font-size: 15px;
+    margin: 16px 0 6px;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  #analysis h2:first-child { margin-top: 0; }
+  #analysis p, #analysis li { font-size: 14.5px; }
+  #analysis ul { padding-left: 20px; }
+  #analysis code {
+    background: var(--panel-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+    vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer {
+    margin-top: 18px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title"><span class="dot"></span>Chart Watcher</div>
+</header>
+
+<div class="controls">
+  <input id="ticker" placeholder="AVGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+  <select id="timeframe">
+    <option value="1D">1D</option>
+    <option value="5D">5D</option>
+    <option value="1M" selected>1M</option>
+    <option value="3M">3M</option>
+    <option value="6M">6M</option>
+    <option value="1Y">1Y</option>
+    <option value="5Y">5Y</option>
+  </select>
+  <button id="goBtn">GO</button>
+</div>
+
+<div id="err" class="err" style="display:none"></div>
+
+<div id="chartWrap">
+  <div id="chart"></div>
+  <div class="quote-row">
+    <span class="sym muted" id="quoteSym">—</span>
+    <span class="px muted" id="quotePx">—</span>
+  </div>
+</div>
+
+<button id="analyzeBtn" class="analyze-btn" disabled>ANALYZE CHART</button>
+
+<div id="analysis"></div>
+
+<footer>
+  Yahoo data · Claude Sonnet 4.6 · on-demand only · not financial advice
+</footer>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.5/dist/purify.min.js"></script>
+<script>
+  const WORKER_URL = "https://chart-watcher.jeffbai996.workers.dev";
+
+  const TF_MAP = {
+    "1D": { range: "1d",  interval: "5m"  },
+    "5D": { range: "5d",  interval: "30m" },
+    "1M": { range: "1mo", interval: "1d"  },
+    "3M": { range: "3mo", interval: "1d"  },
+    "6M": { range: "6mo", interval: "1d"  },
+    "1Y": { range: "1y",  interval: "1d"  },
+    "5Y": { range: "5y",  interval: "1wk" },
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const tickerEl = $("ticker");
+  const tfEl = $("timeframe");
+  const goBtn = $("goBtn");
+  const analyzeBtn = $("analyzeBtn");
+  const errEl = $("err");
+  const analysisEl = $("analysis");
+  const quoteSymEl = $("quoteSym");
+  const quotePxEl = $("quotePx");
+
+  const LS_TICKER = "cw:ticker";
+  const LS_TF = "cw:tf";
+  tickerEl.value = localStorage.getItem(LS_TICKER) || "AVGO";
+  tfEl.value = localStorage.getItem(LS_TF) || "1M";
+
+  const chart = LightweightCharts.createChart($("chart"), {
+    layout: {
+      background: { color: "#141821" },
+      textColor: "#8b93a7",
+      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+    },
+    grid: {
+      vertLines: { color: "#1c2130" },
+      horzLines: { color: "#1c2130" },
+    },
+    crosshair: { mode: 1 },
+    rightPriceScale: { borderColor: "#242a3a" },
+    timeScale: { borderColor: "#242a3a", timeVisible: true, secondsVisible: false },
+    autoSize: true,
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: "#26a69a",
+    downColor: "#ef5350",
+    borderUpColor: "#26a69a",
+    borderDownColor: "#ef5350",
+    wickUpColor: "#26a69a",
+    wickDownColor: "#ef5350",
+  });
+
+  let lastOhlcv = [];
+  let lastFundamentals = null;
+
+  function showErr(msg) {
+    errEl.textContent = msg;
+    errEl.style.display = "block";
+  }
+  function clearErr() { errEl.style.display = "none"; errEl.textContent = ""; }
+
+  function setQuote(ticker, price, changePct) {
+    if (price == null) {
+      quoteSymEl.textContent = ticker || "—";
+      quotePxEl.textContent = "—";
+      quotePxEl.className = "px muted";
+      return;
+    }
+    quoteSymEl.textContent = ticker;
+    const sign = changePct >= 0 ? "+" : "";
+    quotePxEl.textContent = `$${price.toFixed(2)}  ${sign}${(changePct || 0).toFixed(2)}%`;
+    quotePxEl.className = "px " + (changePct >= 0 ? "up" : "down");
+  }
+
+  function parseYahooChart(data) {
+    const r = data?.chart?.result?.[0];
+    if (!r) return null;
+    const ts = r.timestamp || [];
+    const q = r.indicators?.quote?.[0] || {};
+    const bars = [];
+    for (let i = 0; i < ts.length; i++) {
+      const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i], v = q.volume?.[i];
+      if (o == null || h == null || l == null || c == null) continue;
+      bars.push({
+        time: ts[i],
+        open: +o, high: +h, low: +l, close: +c, volume: v ?? null,
+      });
+    }
+    const meta = r.meta || {};
+    return { bars, meta };
+  }
+
+  function barsForChart(bars) {
+    return bars.map((b) => ({
+      time: b.time,
+      open: b.open, high: b.high, low: b.low, close: b.close,
+    }));
+  }
+
+  function barsForPrompt(bars) {
+    const tail = bars.slice(-20);
+    return tail.map((b) => ({
+      date: new Date(b.time * 1000).toISOString().slice(0, 16).replace("T", " "),
+      open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume,
+    }));
+  }
+
+  async function fetchChart(ticker, tf) {
+    const { range, interval } = TF_MAP[tf];
+    const url = `${WORKER_URL}/chart?ticker=${encodeURIComponent(ticker)}&range=${range}&interval=${interval}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `chart fetch failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  async function fetchFundamentals(ticker) {
+    const url = `${WORKER_URL}/fundamentals?ticker=${encodeURIComponent(ticker)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  async function go() {
+    clearErr();
+    analysisEl.classList.remove("show");
+    analysisEl.textContent = "";
+    const ticker = (tickerEl.value || "").trim().toUpperCase();
+    const tf = tfEl.value;
+    if (!/^[A-Z0-9.\-]{1,10}$/.test(ticker)) {
+      showErr("invalid ticker");
+      return;
+    }
+    localStorage.setItem(LS_TICKER, ticker);
+    localStorage.setItem(LS_TF, tf);
+
+    goBtn.disabled = true;
+    analyzeBtn.disabled = true;
+    goBtn.textContent = "…";
+
+    try {
+      const [chartData, funds] = await Promise.all([
+        fetchChart(ticker, tf),
+        fetchFundamentals(ticker),
+      ]);
+      const parsed = parseYahooChart(chartData);
+      if (!parsed || !parsed.bars.length) throw new Error("no bars returned");
+
+      candleSeries.setData(barsForChart(parsed.bars));
+      chart.timeScale().fitContent();
+
+      lastOhlcv = barsForPrompt(parsed.bars);
+      lastFundamentals = funds;
+
+      const meta = parsed.meta;
+      const last = parsed.bars[parsed.bars.length - 1];
+      const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? last.open;
+      const price = meta.regularMarketPrice ?? last.close;
+      const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+      setQuote(ticker, price, changePct);
+
+      analyzeBtn.disabled = false;
+    } catch (e) {
+      showErr(e.message || "fetch failed");
+      setQuote(ticker, null, null);
+    } finally {
+      goBtn.disabled = false;
+      goBtn.textContent = "GO";
+    }
+  }
+
+  function captureChartImage() {
+    const canvas = chart.takeScreenshot();
+    return canvas.toDataURL("image/png");
+  }
+
+  async function analyze() {
+    clearErr();
+    if (!lastOhlcv.length) {
+      showErr("load a chart first");
+      return;
+    }
+    const ticker = (tickerEl.value || "").trim().toUpperCase();
+    const tf = tfEl.value;
+
+    analyzeBtn.disabled = true;
+    const origLabel = "ANALYZE CHART";
+    analyzeBtn.textContent = "Analyzing…";
+    analysisEl.classList.remove("show");
+    analysisEl.textContent = "";
+
+    try {
+      const image = captureChartImage();
+      const res = await fetch(`${WORKER_URL}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker,
+          timeframe: tf,
+          image,
+          ohlcv_tail: lastOhlcv,
+          fundamentals: lastFundamentals,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `analyze failed (${res.status})`);
+      const html = marked.parse(body.markdown || "(empty response)");
+      // Sanitize before injection — LLM output is untrusted.
+      analysisEl.innerHTML = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+      analysisEl.classList.add("show");
+    } catch (e) {
+      showErr(e.message || "analyze failed");
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = origLabel;
+    }
+  }
+
+  goBtn.addEventListener("click", go);
+  analyzeBtn.addEventListener("click", analyze);
+  tickerEl.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+
+  // Initial load
+  go();
+</script>
+
+</body>
+</html>

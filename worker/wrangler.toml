@@ -1,0 +1,16 @@
+name = "chart-watcher"
+main = "worker.js"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespace for IP-based rate limiting on /analyze
+# Create with: wrangler kv:namespace create RATE_LIMIT
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REPLACE_WITH_KV_ID"
+
+# Secrets set with:
+#   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put FINNHUB_API_KEY
+# Do NOT put keys in this file.
