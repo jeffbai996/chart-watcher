@@ -1,0 +1,17 @@
+{
+  "name": "chart-watcher-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.84.1"
+  }
+}
