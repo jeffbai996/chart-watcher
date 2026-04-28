@@ -177,7 +177,7 @@
 </header>
 
 <div class="controls">
-  <input id="ticker" placeholder="GENERIC" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+  <input id="ticker" placeholder="AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" />
   <select id="timeframe">
     <option value="1D">1D</option>
     <option value="5D">5D</option>
@@ -236,7 +236,7 @@
 
   const LS_TICKER = "cw:ticker";
   const LS_TF = "cw:tf";
-  tickerEl.value = localStorage.getItem(LS_TICKER) || "GENERIC";
+  tickerEl.value = localStorage.getItem(LS_TICKER) || "AAPL";
   tfEl.value = localStorage.getItem(LS_TF) || "1M";
 
   const chart = LightweightCharts.createChart($("chart"), {
