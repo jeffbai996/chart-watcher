@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 # Then paste the returned id below.
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "REPLACE_WITH_KV_ID"
+id = "807ada6650a1466a88b092fcac5ef722"
 
 # Secrets set with:
 #   wrangler secret put ANTHROPIC_API_KEY   # for Sonnet 4.6 toggle
