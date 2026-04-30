@@ -194,6 +194,81 @@ function formatOhlcvTable(bars) {
   return [header, ...rows].join("\n");
 }
 
+// Provider IDs the frontend may send. Anything else → reject.
+const MODEL_ALIASES = {
+  gemini: { provider: "gemini", id: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
+  sonnet: { provider: "anthropic", id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+};
+
+async function callAnthropic({ apiKey, base64, userText }) {
+  const client = new Anthropic({ apiKey });
+  const response = await client.messages.create({
+    model: MODEL_ALIASES.sonnet.id,
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: base64 },
+          },
+          { type: "text", text: userText },
+        ],
+      },
+    ],
+  });
+  const markdown = (response.content || [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+  return { markdown, usage: response.usage || null };
+}
+
+async function callGemini({ apiKey, base64, userText }) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ALIASES.gemini.id}:generateContent`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { inlineData: { mimeType: "image/png", data: base64 } },
+            { text: userText },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1024,
+      },
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`gemini ${res.status}: ${errBody.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const markdown = parts
+    .filter((p) => typeof p.text === "string")
+    .map((p) => p.text)
+    .join("\n")
+    .trim();
+  if (!markdown) {
+    throw new Error("gemini returned no text");
+  }
+  return { markdown, usage: data?.usageMetadata || null };
+}
+
 async function handleAnalyze(request, env) {
   let body;
   try {
@@ -202,7 +277,7 @@ async function handleAnalyze(request, env) {
     return errorResponse("invalid json body", 400);
   }
 
-  const { ticker, timeframe, image, ohlcv_tail, fundamentals } = body || {};
+  const { ticker, timeframe, image, ohlcv_tail, fundamentals, model } = body || {};
 
   if (!ticker || !TICKER_RE.test(String(ticker).toUpperCase())) {
     return errorResponse("invalid ticker", 400);
@@ -221,7 +296,17 @@ async function handleAnalyze(request, env) {
     return errorResponse("invalid ohlcv_tail", 400);
   }
 
-  if (!env.ANTHROPIC_API_KEY) return errorResponse("server missing api key", 500);
+  // Default to Gemini; explicit "sonnet" routes to Anthropic.
+  const modelKey = (model || "gemini").toLowerCase();
+  const chosen = MODEL_ALIASES[modelKey];
+  if (!chosen) return errorResponse(`unknown model: ${model}`, 400);
+
+  if (chosen.provider === "anthropic" && !env.ANTHROPIC_API_KEY) {
+    return errorResponse("server missing anthropic key", 500);
+  }
+  if (chosen.provider === "gemini" && !env.GEMINI_API_KEY) {
+    return errorResponse("server missing gemini key", 500);
+  }
 
   const ip = request.headers.get("cf-connecting-ip") || "unknown";
   const rl = await checkRateLimit(env, ip);
@@ -238,42 +323,22 @@ async function handleAnalyze(request, env) {
     JSON.stringify(fundamentals ?? {}, null, 2),
   ].join("\n");
 
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
-  let response;
+  let result;
   try {
-    response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/png",
-                data: base64,
-              },
-            },
-            { type: "text", text: userText },
-          ],
-        },
-      ],
-    });
+    if (chosen.provider === "anthropic") {
+      result = await callAnthropic({ apiKey: env.ANTHROPIC_API_KEY, base64, userText });
+    } else {
+      result = await callGemini({ apiKey: env.GEMINI_API_KEY, base64, userText });
+    }
   } catch (err) {
     return errorResponse(`llm call failed: ${err?.message || String(err)}`, 502);
   }
 
-  const markdown = (response.content || [])
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n")
-    .trim();
-
-  return json({ markdown, usage: response.usage || null });
+  return json({
+    markdown: result.markdown,
+    usage: result.usage,
+    model: chosen.label,
+  });
 }
 
 export default {

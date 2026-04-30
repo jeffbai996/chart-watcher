@@ -3,10 +3,10 @@
 **On-demand LLM read of a stock chart. Mobile-first, one tap, three sections.**
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Model](https://img.shields.io/badge/model-claude--sonnet--4--6-4da3ff)
+![Models](https://img.shields.io/badge/models-Gemini%203%20Flash%20·%20Sonnet%204.6-4da3ff)
 ![Stack](https://img.shields.io/badge/stack-vanilla%20JS%20%2B%20Cloudflare%20Worker-lightgrey)
 
-Type a ticker, pick a timeframe, tap ANALYZE. Claude Sonnet 4.6 looks at the candlestick chart (as an image) plus the last 20 bars and a compact fundamentals snapshot, and returns:
+Type a ticker, pick a timeframe, tap ANALYZE. The selected model (Gemini 3 Flash by default, or Claude Sonnet 4.6 for high-stakes reads) looks at the candlestick chart (as an image) plus the last 20 bars and a compact fundamentals snapshot, and returns:
 
 1. **What just happened** — plain English narration of the recent move
 2. **Technical read** — levels, trend, momentum, continuation-vs-reversal
@@ -26,11 +26,11 @@ Built because continuous chart monitoring via LLM is expensive and noisy. A sing
   - `GET /fundamentals` — calls Finnhub (`/stock/profile2`, `/stock/metric`, `/stock/recommendation`, `/calendar/earnings`) and returns a compact subset
   - `POST /analyze` — calls Anthropic API with chart image + OHLCV tail + fundamentals, returns 3-section markdown
 - **Data**: Yahoo Finance chart endpoint for OHLCV (unauthenticated); Finnhub free tier for fundamentals (60 req/min, free key).
-- **LLM**: `claude-sonnet-4-6` via `@anthropic-ai/sdk`.
+- **LLM**: `gemini-3-flash-preview` (default, ~$0.0015/tap) via the Generative Language REST API; `claude-sonnet-4-6` (toggle, ~$0.02/tap) via `@anthropic-ai/sdk`. Frontend pill switches between them; choice persists in localStorage.
 - **Rate limit**: 10 analyses/hour/IP via Workers KV.
 - **Security**: LLM output is untrusted; all markdown is sanitized with DOMPurify before rendering.
 
-~$0.02 per analysis. Cloudflare Worker stays on free tier.
+~$0.0015 per analysis on Gemini Flash, ~$0.02 on Sonnet. Cloudflare Worker stays on free tier.
 
 ---
 
@@ -43,8 +43,9 @@ cd worker
 npm install
 wrangler kv namespace create RATE_LIMIT
 # paste the returned id into wrangler.toml
-wrangler secret put ANTHROPIC_API_KEY
-wrangler secret put FINNHUB_API_KEY   # free key from https://finnhub.io
+wrangler secret put GEMINI_API_KEY      # free key from https://aistudio.google.com/app/apikey
+wrangler secret put ANTHROPIC_API_KEY   # for the Sonnet toggle
+wrangler secret put FINNHUB_API_KEY     # free key from https://finnhub.io
 wrangler deploy
 ```
 

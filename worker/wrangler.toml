@@ -11,6 +11,7 @@ binding = "RATE_LIMIT"
 id = "REPLACE_WITH_KV_ID"
 
 # Secrets set with:
-#   wrangler secret put ANTHROPIC_API_KEY
-#   wrangler secret put FINNHUB_API_KEY
+#   wrangler secret put ANTHROPIC_API_KEY   # for Sonnet 4.6 toggle
+#   wrangler secret put GEMINI_API_KEY      # default model (Gemini 3 Flash)
+#   wrangler secret put FINNHUB_API_KEY     # fundamentals data
 # Do NOT put keys in this file.

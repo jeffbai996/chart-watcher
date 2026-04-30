@@ -110,11 +110,37 @@
   .quote-row .px { font-size: 18px; font-weight: 700; }
   .up { color: var(--up); }
   .down { color: var(--down); }
+  .model-row {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 6px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .model-row .label { margin-right: 4px; }
+  .model-pill {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    min-height: 36px;
+    cursor: pointer;
+  }
+  .model-pill.active {
+    background: var(--accent);
+    color: #0b0e14;
+    border-color: var(--accent);
+  }
   .analyze-btn {
     width: 100%;
     padding: 16px;
     font-size: 16px;
-    margin: 10px 0 14px;
+    margin: 6px 0 14px;
   }
   .err {
     background: rgba(255, 107, 107, 0.1);
@@ -200,12 +226,18 @@
   </div>
 </div>
 
+<div class="model-row">
+  <span class="label">Model:</span>
+  <button class="model-pill active" data-model="gemini" id="modelGemini" type="button">Gemini 3 Flash</button>
+  <button class="model-pill" data-model="sonnet" id="modelSonnet" type="button">Sonnet 4.6</button>
+</div>
+
 <button id="analyzeBtn" class="analyze-btn" disabled>ANALYZE CHART</button>
 
 <div id="analysis"></div>
 
 <footer>
-  Yahoo data · Claude Sonnet 4.6 · on-demand only · not financial advice
+  Yahoo data · Gemini 3 Flash / Sonnet 4.6 · on-demand only · not financial advice
 </footer>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -233,11 +265,28 @@
   const analysisEl = $("analysis");
   const quoteSymEl = $("quoteSym");
   const quotePxEl = $("quotePx");
+  const modelPills = document.querySelectorAll(".model-pill");
 
   const LS_TICKER = "cw:ticker";
   const LS_TF = "cw:tf";
+  const LS_MODEL = "cw:model";
   tickerEl.value = localStorage.getItem(LS_TICKER) || "AAPL";
   tfEl.value = localStorage.getItem(LS_TF) || "1M";
+
+  let selectedModel = localStorage.getItem(LS_MODEL) || "gemini";
+  function applyModelSelection() {
+    modelPills.forEach((p) => {
+      p.classList.toggle("active", p.dataset.model === selectedModel);
+    });
+  }
+  modelPills.forEach((p) => {
+    p.addEventListener("click", () => {
+      selectedModel = p.dataset.model;
+      localStorage.setItem(LS_MODEL, selectedModel);
+      applyModelSelection();
+    });
+  });
+  applyModelSelection();
 
   const chart = LightweightCharts.createChart($("chart"), {
     layout: {
@@ -416,6 +465,7 @@
           image,
           ohlcv_tail: lastOhlcv,
           fundamentals: lastFundamentals,
+          model: selectedModel,
         }),
       });
       const body = await res.json().catch(() => ({}));
