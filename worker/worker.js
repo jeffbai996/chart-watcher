@@ -248,7 +248,9 @@ async function callGemini({ apiKey, base64, userText }) {
       ],
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 1024,
+        // Gemini 3 uses internal "thinking" tokens that count against this budget.
+        // 2048 leaves ~1k for actual response after typical 800-1k thinking spend.
+        maxOutputTokens: 2048,
       },
     }),
   });
